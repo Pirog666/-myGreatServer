@@ -9,13 +9,13 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cors())
 
-db.one('SELECT $1 AS value', 123)
-    .then(function (data) {
-        console.log('DATA:', data.value)
-    })
-    .catch(function (error) {
-        console.log('ERROR:', error)
-    })
+// db.one('SELECT $1 AS value', 123)
+//     .then(function (data) {
+//         console.log('DATA:', data.value)
+//     })
+//     .catch(function (error) {
+//         console.log('ERROR:', error)
+//     })
 
 app.get('/', function (req, res) {
     res.send('hello API');
@@ -23,7 +23,27 @@ app.get('/', function (req, res) {
 
 app.get('/articles', function (req, res) {
 
-    db.any('SELECT * FROM articles ')
+    db.any("SELECT t1.id, name, picture_url, date, page_content, " +
+    "array_to_string(array_agg(tag_name ORDER BY tag_name), '  ') as tag_names " +
+    "FROM((SELECT tag_id, articles.* FROM articles_tags " +
+    "RIGHT JOIN articles ON articles_tags.article_id = articles.id) t1 " +
+    "LEFT JOIN tags ON t1.tag_id = tags.id) " +
+    "GROUP BY t1.id, name, picture_url, date, page_content")
+        .then(function (data) {
+            res.send(data);
+        })
+        .catch(function (error) {
+            console.log('ERROR:', error);
+            res.sendStatus(400);
+        });
+})
+
+app.get('/tags', function (req, res) {
+
+    db.any("SELECT tag_id, articles_count, tag_name " +
+        "FROM((SELECT tag_id, COUNT(article_id) as articles_count " +
+        "FROM articles_tags GROUP BY tag_id) t1 LEFT JOIN tags ON t1.tag_id = tags.id)")
+
         .then(function (data) {
             res.send(data);
         })
