@@ -54,7 +54,13 @@ app.get('/tags', function (req, res) {
 })
 
 app.get('/articles/:id', function (req, res) {
-    db.one('SELECT * FROM articles WHERE id = $1', Number(req.params.id))
+    db.one("SELECT t1.id, name, picture_url, date, page_content, " +
+    "array_to_string(array_agg(tag_name ORDER BY tag_name), ' ') as tag_names " +
+    "FROM ((SELECT tag_id, articles.* FROM articles_tags " +
+    "RIGHT JOIN articles ON articles_tags.article_id = articles.id) t1 " +
+    "LEFT JOIN tags ON t1.tag_id = tags.id) " +
+    "WHERE t1.id = $1 " +
+    "GROUP BY t1.id, name, picture_url, date, page_content", Number(req.params.id))
         .then(function (data) {
             res.send(data);
         })
