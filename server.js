@@ -24,11 +24,49 @@ app.get('/', function (req, res) {
 app.get('/articles', function (req, res) {
 
     db.any("SELECT t1.id, name, picture_url, date, page_content, " +
-    "array_to_string(array_agg(tag_name ORDER BY tag_name), '  ') as tag_names " +
-    "FROM((SELECT tag_id, articles.* FROM articles_tags " +
-    "RIGHT JOIN articles ON articles_tags.article_id = articles.id) t1 " +
-    "LEFT JOIN tags ON t1.tag_id = tags.id) " +
-    "GROUP BY t1.id, name, picture_url, date, page_content")
+        "array_to_string(array_agg(tag_name ORDER BY tag_name), '  ') as tag_names " +
+        "FROM((SELECT tag_id, articles.* FROM articles_tags " +
+        "RIGHT JOIN articles ON articles_tags.article_id = articles.id) t1 " +
+        "LEFT JOIN tags ON t1.tag_id = tags.id) " +
+        "GROUP BY t1.id, name, picture_url, date, page_content")
+        .then(function (data) {
+            res.send(data);
+        })
+        .catch(function (error) {
+            console.log('ERROR:', error);
+            res.sendStatus(400);
+        });
+})
+
+app.get('/articles/:id', function (req, res) {
+    db.one("SELECT t1.id, name, picture_url, date, page_content, " +
+        "array_to_string(array_agg(tag_name ORDER BY tag_name), ' ') as tag_names " +
+        "FROM ((SELECT tag_id, articles.* FROM articles_tags " +
+        "RIGHT JOIN articles ON articles_tags.article_id = articles.id) t1 " +
+        "LEFT JOIN tags ON t1.tag_id = tags.id) " +
+        "WHERE t1.id = $1 " +
+        "GROUP BY t1.id, name, picture_url, date, page_content", Number(req.params.id))
+        .then(function (data) {
+            res.send(data);
+        })
+        .catch(function (error) {
+            console.log('ERROR:', error);
+            res.sendStatus(400);
+        });
+})
+
+app.get('/filter', function (req, res) {
+    let id = req.query.tag_id;
+    console.log(id);
+
+    db.any("SELECT t1.id, name, picture_url, date, page_content, " +
+        "array_to_string(array_agg(tag_name ORDER BY tag_name), '  ') as tag_names, " +
+        "array_agg(tag_id ORDER BY tag_id) as tag_ids " +
+        "FROM((SELECT tag_id, articles.* FROM articles_tags " +
+        "RIGHT JOIN articles ON articles_tags.article_id = articles.id) t1 " +
+        "LEFT JOIN tags ON t1.tag_id = tags.id) " +
+        "GROUP BY t1.id, name, picture_url, date, page_content " +
+        `HAVING ${id} = ANY(array_agg(tag_id ORDER BY tag_id))`) 
         .then(function (data) {
             res.send(data);
         })
@@ -53,23 +91,6 @@ app.get('/tags', function (req, res) {
         });
 })
 
-app.get('/articles/:id', function (req, res) {
-    db.one("SELECT t1.id, name, picture_url, date, page_content, " +
-    "array_to_string(array_agg(tag_name ORDER BY tag_name), ' ') as tag_names " +
-    "FROM ((SELECT tag_id, articles.* FROM articles_tags " +
-    "RIGHT JOIN articles ON articles_tags.article_id = articles.id) t1 " +
-    "LEFT JOIN tags ON t1.tag_id = tags.id) " +
-    "WHERE t1.id = $1 " +
-    "GROUP BY t1.id, name, picture_url, date, page_content", Number(req.params.id))
-        .then(function (data) {
-            res.send(data);
-        })
-        .catch(function (error) {
-            console.log('ERROR:', error);
-            res.sendStatus(400);
-        });
-})
-
 app.post('/articles', function (req, res) {
     db.none('INSERT INTO articles(name, picture_url, date, page_content) VALUES($1, $2, $3, $4)',
         [req.body.name, req.body.picture_url, req.body.date, req.body.page_content])
@@ -85,6 +106,7 @@ app.post('/articles', function (req, res) {
 app.listen(3012, function () {
     console.log('API app started');
 })
+
 
 // app.get('/artists/:id', function(req, res){
 //     console.log(req.params);
